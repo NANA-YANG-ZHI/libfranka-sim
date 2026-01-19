@@ -41,13 +41,13 @@ class FrankaGenesisSim:
         self.control_mode_lock = threading.Lock()
         self.dt = 0.01  # Simulation timestep
         self.sim_thread = None
-        self.ddq_filtered = np.zeros(9)
+        self.ddq_filtered = np.zeros(7)
 
         # Get the Genesis assets path instead of our own
         import genesis
 
         genesis_path = Path(genesis.__file__).parent
-        self.xml_path = genesis_path / "assets/xml/franka_emika_panda/panda.xml"
+        self.xml_path = genesis_path / "assets/xml/franka_emika_panda/panda_nohand.xml"
 
         # Keep URDF path for future use if needed (for Pinocchio)
         # This is currently unused, but kept for reference
@@ -109,15 +109,13 @@ class FrankaGenesisSim:
             "joint5",
             "joint6",
             "joint7",
-            "finger_joint1",
-            "finger_joint2",
         ]
         self.dofs_idx = [self.franka.get_joint(name).dof_idx_local for name in self.jnt_names]
 
         # Set force range for safety
         self.franka.set_dofs_force_range(
-            lower=np.array([-87, -87, -87, -87, -12, -12, -12, -100, -100]),
-            upper=np.array([87, 87, 87, 87, 12, 12, 12, 100, 100]),
+            lower=np.array([-87, -87, -87, -87, -12, -12, -12]),
+            upper=np.array([87, 87, 87, 87, 12, 12, 12]),
             dofs_idx_local=self.dofs_idx,
         )
 
@@ -128,7 +126,7 @@ class FrankaGenesisSim:
             self.latest_joint_positions = initial_q.copy()
 
         for _ in range(100):
-            self.franka.set_dofs_position(np.concatenate([initial_q, [0.04, 0.04]]), self.dofs_idx)
+            self.franka.set_dofs_position(initial_q, self.dofs_idx)
             self.scene.step()
 
     def set_control_mode(self, mode: ControlMode):
@@ -160,8 +158,8 @@ class FrankaGenesisSim:
         logger.info("Starting Genesis simulation loop")
 
         # For numerical differentiation
-        self.prev_dq_full = np.zeros(9)
-        self.ddq_filtered = np.zeros(9)
+        self.prev_dq_full = np.zeros(7)
+        self.ddq_filtered = np.zeros(7)
         alpha_acc = 0.95
 
         while self.running:
@@ -182,20 +180,17 @@ class FrankaGenesisSim:
             if current_mode == ControlMode.POSITION:
                 with self.joint_position_lock:
                     q_d = self.latest_joint_positions.copy()
-                q_cmd = np.concatenate([q_d, [0.04, 0.04]])
-                self.franka.control_dofs_position(q_cmd, self.dofs_idx)
+                self.franka.control_dofs_position(q_d, self.dofs_idx)
 
             elif current_mode == ControlMode.VELOCITY:
                 with self.joint_velocity_lock:
                     dq_d = self.latest_joint_velocities.copy()
-                dq_cmd = np.concatenate([dq_d, [0.0, 0.0]])
-                self.franka.control_dofs_velocity(dq_cmd, self.dofs_idx)
+                self.franka.control_dofs_velocity(dq_d, self.dofs_idx)
 
             elif current_mode == ControlMode.TORQUE:
                 with self.torque_lock:
                     tau_d = self.latest_torques.copy()
-                tau_cmd = np.concatenate([tau_d, [0.0, 0.0]])
-                self.franka.control_dofs_force(tau_cmd, self.dofs_idx)
+                self.franka.control_dofs_force(tau_d, self.dofs_idx)
 
             # Step simulation
             self.scene.step()
