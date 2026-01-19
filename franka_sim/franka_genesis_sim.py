@@ -240,9 +240,9 @@ class FrankaGenesisSim:
         ddq_full = self.ddq_filtered
 
         # Get end-effector position and orientation
-        hand_link = self.franka.get_link("hand")
-        ee_pos = hand_link.get_pos().cpu().numpy()
-        ee_quat = hand_link.get_quat().cpu().numpy()  # [x, y, z, w]
+        ee_link = self.franka.get_link("link8")
+        ee_pos = ee_link.get_pos().cpu().numpy()
+        ee_quat = ee_link.get_quat().cpu().numpy()  # [x, y, z, w]
 
         # Convert quaternion to rotation matrix
         # Note: quaternion from Genesis is [x, y, z, w]
