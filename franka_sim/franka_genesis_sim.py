@@ -240,7 +240,7 @@ class FrankaGenesisSim:
         ddq_full = self.ddq_filtered
 
         # Get end-effector position and orientation
-        ee_link = self.franka.get_link("link8")
+        ee_link = self.franka.get_link("attachment")
         ee_pos = ee_link.get_pos().cpu().numpy()
         ee_quat = ee_link.get_quat().cpu().numpy()  # [x, y, z, w]
 
